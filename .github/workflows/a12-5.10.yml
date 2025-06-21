@@ -57,7 +57,7 @@ jobs:
         make -j$(nproc) # 使用所有可用核心编译
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: kernel-binaries
         path: |
