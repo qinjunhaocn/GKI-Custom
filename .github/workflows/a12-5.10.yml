@@ -1,0 +1,66 @@
+name: Build Android Kernel
+
+on:
+  workflow_dispatch: # 手动触发
+
+jobs:
+  build_kernel:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120 # 编译内核可能较久
+
+    steps:
+    - name: Checkout kernel source
+      run: |
+        git clone --depth=1 --branch android12-5.10.209 \
+          https://android.googlesource.com/kernel/common kernel
+        cd kernel
+        # 验证内核版本
+        grep "5.10.209" Makefile || exit 1
+
+    - name: Get custom config
+      run: |
+        git clone --depth=1 https://github.com/qinjunhaocn/GKI-Custom.git
+        cp GKI-Custom/config/gki_defconfig-android12-5.10 kernel/arch/arm64/configs/gki_defconfig
+        # 验证配置文件存在
+        test -f kernel/arch/arm64/configs/gki_defconfig || exit 1
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential flex bison libssl-dev libelf-dev \
+          bc python3 rsync git
+
+    - name: Install toolchains
+      run: |
+        mkdir toolchains
+        cd toolchains
+        
+        # 下载Clang编译器
+        git clone --depth=1 --branch r416183b \
+          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 clang
+        
+        # 下载交叉编译工具链
+        git clone --depth=1 --branch master \
+          https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc
+
+    - name: Build kernel
+      working-directory: ./kernel
+      env:
+        ARCH: arm64
+        CROSS_COMPILE: ../toolchains/gcc/bin/aarch64-linux-android-
+        CLANG_TRIPLE: aarch64-linux-gnu-
+        CC: $(pwd)/../toolchains/clang/bin/clang
+      run: |
+        make clean
+        make gki_defconfig
+        make -j$(nproc) # 使用所有可用核心编译
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: kernel-binaries
+        path: |
+          kernel/arch/arm64/boot/Image.gz
+          kernel/vmlinux
+        retention-days: 7
