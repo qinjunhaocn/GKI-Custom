@@ -11,11 +11,12 @@ jobs:
     steps:
     - name: Checkout kernel source
       run: |
-        git clone --depth=1 --branch android12-5.10.209 \
+        git clone --depth=1 --branch android12-5.10-lts \
           https://android.googlesource.com/kernel/common kernel
         cd kernel
         # 验证内核版本
-        grep "5.10.209" Makefile || exit 1
+        grep "VERSION = 5" Makefile
+        grep "PATCHLEVEL = 10" Makefile
 
     - name: Get custom config
       run: |
